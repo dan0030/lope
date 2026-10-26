@@ -554,6 +554,7 @@ textarea.in{ resize:vertical; line-height:1.7; }
 <script>
 (function(){
 "use strict";
+window.LOPE_NOVEL_READY = true;   // 작은 불러오기 파일(pair-novel-lope.html)이 본체가 왔는지 확인하는 표시
 const L = window.LOPE_HTML_PAGE || {};
 const SITE = L.siteData || null;
 const LOCAL = !L.pageId;                      // LOPE 밖에서 파일로 연 경우
@@ -1200,7 +1201,20 @@ VIEWS.series = function(p){
       h("button", { class: "btn sm line", type: "button", onclick: () => {
         if (!confirm("'" + s.title + "' 작품과 회차 " + eps.length + "개를 모두 지울까요?")) return;
         lib.series.splice(lib.series.indexOf(s), 1); markDirty(); go("library", {}, false);
-      }, text: "작품 삭제" })) : null);
+      }, text: "작품 삭제" })) : null,
+    CAN_EDIT && s.readonly ? h("div", { class: "cta" },
+      h("button", { class: "btn sm kr", type: "button", onclick: () => {
+        if (!confirm("이 작품을 내 작품으로 복사할까요?\n복사본은 제목·회차를 마음대로 고치거나 지울 수 있고, 사이트에서 자동으로 만든 이 작품은 서재에서 숨겨져요.")) return;
+        const copy = importSiteSeries(s);
+        lib.series.unshift(copy); lib.showSite = false; markDirty(); go("series", { id: copy.id }, false);
+        toast("내 작품으로 가져왔어요. '사이트에 저장'을 눌러야 남아요.");
+      }, text: "내 작품으로 가져오기" }),
+      h("button", { class: "btn sm line", type: "button", onclick: () => {
+        if (!confirm("'" + s.title + "' 작품을 서재에서 지울까요?\n사이트의 연표·대화 원본은 그대로 남아요. 나중에 '서재 설정'에서 다시 켤 수 있어요.")) return;
+        lib.showSite = false; markDirty(); go("library", {}, false);
+        toast("지웠어요. '사이트에 저장'을 눌러야 방문자 화면에도 반영돼요.");
+      }, text: "작품 삭제" })) : null,
+    s.readonly ? h("p", { class: "mono mute", style: { margin: 0 }, text: "사이트의 연표·대화로 자동으로 만든 작품이에요" }) : null);
   page.appendChild(h("div", { class: "sv" }, cv, info));
 
   if (str(s.intro)){
@@ -1257,6 +1271,27 @@ VIEWS.series = function(p){
   }
   app.appendChild(page);
 };
+// 사이트 자동 작품 → 고칠 수 있는 내 작품 (대화는 "이름: 대사" 원문으로 바꿔서 채팅 로그 편집기에서 고칠 수 있게)
+function importSiteSeries(s){
+  const c = JSON.parse(JSON.stringify(s));
+  c.id = uid(); delete c.readonly;
+  c.created = today(); c.updated = today();
+  c.episodes = arr(c.episodes).filter(e => !e.locked).map(e => {
+    e.id = uid(); e.date = e.date || today();
+    if (e.type === "chat" && e.chat && arr(e.chat.turns).length){
+      const spk = [], seen = new Set();
+      const lines = e.chat.turns.map(t => {
+        const name = t.side === "nar" || !t.name ? "나레이션" : t.name;
+        if (!seen.has(name)){ seen.add(name); spk.push({ name, color: t.color || "", avatar: t.avatar || "", side: name === "나레이션" ? "nar" : (t.side === "right" ? "right" : "left") }); }
+        return name + ": " + String(t.text || "").replace(/\r/g, "");
+      });
+      const me = spk.find(x => x.side === "right");
+      e.chat = { raw: lines.join("\n\n"), speakers: spk, user: me ? me.name : "", mode: e.chat.mode || "novel", names: true, hideOoc: true };
+    }
+    return e;
+  });
+  return c;
+}
 function stripTags(html){ const d = document.createElement("template"); d.innerHTML = html || ""; d.content.querySelectorAll("style").forEach(s => s.remove()); return d.content.textContent || ""; }
 
 /* ═══════════════════════ 채팅 로그 해석 ═══════════════════════ */
