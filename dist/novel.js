@@ -1080,8 +1080,8 @@ VIEWS.reader = function(p){
   rd.appendChild(h("header", { class: "rd-top" }, h("div", { class: "bin" },
     h("button", { class: "ib", type: "button", "aria-label": "작품으로", onclick: () => go("series", { id: s.id }, false) }, icon('<path d="M15 18l-6-6 6-6"/>'), h("span", { class: "lbl", text: "BACK" })),
     h("div", { class: "where" }, h("b", { text: e.title || pad(num) + "화" }), h("small", { text: s.title + " · EP " + pad(num) })),
-    h("button", { class: "ib", type: "button", "aria-label": "목차", onclick: () => openToc(s, p.i) }, icon('<path d="M4 6h16M4 12h16M4 18h10"/>'), h("span", { class: "lbl", text: "INDEX" })),
-    h("button", { class: "ib", type: "button", "aria-label": "보기 설정", onclick: () => openSettings(rd, s, e) }, h("span", { style: { fontFamily: "var(--serif)", fontSize: "15px", letterSpacing: "0" }, text: "가" }), h("span", { class: "lbl", text: "VIEW" })))));
+    h("button", { class: "ib wide-only", type: "button", "aria-label": "목차", onclick: () => openToc(s, p.i) }, icon('<path d="M4 6h16M4 12h16M4 18h10"/>'), h("span", { class: "lbl", text: "INDEX" })),
+    h("button", { class: "ib wide-only", type: "button", "aria-label": "보기 설정", onclick: () => openSettings(rd, s, e) }, h("span", { style: { fontFamily: "var(--serif)", fontSize: "15px", letterSpacing: "0" }, text: "가" }), h("span", { class: "lbl", text: "VIEW" })))));
   const pct = h("aside", { class: "rd-pct", "aria-hidden": "true" }, h("span", { class: "mono", text: "READ" }), h("b", { html: "0<small>%</small>" }), h("div", { class: "track" }, h("i")));
   rd.appendChild(pct);
 
@@ -1135,6 +1135,7 @@ VIEWS.reader = function(p){
     h("button", { class: "ib", type: "button", disabled: prevI < 0 || null, onclick: () => go("reader", { id: s.id, i: prevI }, false), text: "◀ PREV" }),
     h("span", { class: "pg", text: pad(num) + " / " + pad(total) }),
     h("button", { class: "ib", type: "button", onclick: () => openToc(s, p.i), text: "INDEX" }),
+    h("button", { class: "ib narrow-only", type: "button", "aria-label": "보기 설정", onclick: () => openSettings(rd, s, e) }, h("span", { style: { fontFamily: "var(--serif)", fontSize: "15px", letterSpacing: "0" }, text: "가" })),
     h("button", { class: "ib fill", type: "button", disabled: nextI < 0 || null, onclick: () => go("reader", { id: s.id, i: nextI }, false), text: "NEXT ▶" }))));
   app.appendChild(rd);
 
@@ -1775,17 +1776,18 @@ function cycleRsv(btn){
 // ── 스킨 메뉴 단추가 가리는 위쪽 높이
 //    PV(IF ARCHIVE) 스킨은 1600×900 무대를 화면에 맞춰 늘이고, 오른쪽 위에 MENU 단추(높이 68, 폰 46)를 띄운다.
 function layoutSafe(){
-  let top = 0;
+  let top = 0, right = 0;
   const manual = Number(SET.safeTop) || 0;
   if (manual > 0) top = manual;
   else if (SKIN === "pv"){
     const W0 = window.innerWidth, sw = W0 - rsv, sh = window.innerHeight;
     const phone = W0 < 760 || W0 / sh < 0.85;
-    if (phone){ const W = sw <= 480 ? Math.max(360, sw) : Math.round(Math.min(600, Math.max(480, sw / 1.5))); top = 46 * (sw / W); }
-    else top = 68 * Math.min(sw / 1600, sh / 900);
-    top = Math.ceil(top) + 6;
+    if (phone){ const W = sw <= 480 ? Math.max(360, sw) : Math.round(Math.min(600, Math.max(480, sw / 1.5))), k = sw / W; top = 46 * k; right = 190 * k; }
+    else { const k = Math.min(sw / 1600, sh / 900); top = 68 * k; right = 270 * k; }
+    top = Math.ceil(top) + 6; right = Math.ceil(right) + 8;
   }
   ROOT.style.setProperty("--safe-top", top + "px");
+  ROOT.style.setProperty("--safe-right", right + "px");
 }
 let resizeT = 0;
 window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { applyRsv(); layoutSafe(); }, 150); });
