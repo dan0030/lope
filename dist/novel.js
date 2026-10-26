@@ -359,7 +359,7 @@ function normalizeLib(j){
   lib.series = arr(lib.series).filter(s => s && typeof s === "object").map(s => Object.assign({
     id: uid(), title: "제목 없음", tagline: "", author: "", genre: "", status: "ongoing", age: "all", color: "", cover: "",
     tags: [], intro: "", cast: [], created: today(), updated: today(), episodes: [] }, s, {
-      tags: arr(s.tags).map(str).filter(Boolean), cast: arr(s.cast),
+      tags: arr(s.tags).map(str).filter(Boolean), cast: arr(s.cast), speakers: arr(s.speakers).filter(x => x && str(x.name)),
       episodes: arr(s.episodes).filter(e => e && typeof e === "object").map(e => Object.assign({ id: uid(), type: "novel", title: "", date: "", html: "", note: "" }, e))
     }));
   return lib;
@@ -873,10 +873,12 @@ function importSiteSeries(s){
         return name + ": " + String(t.text || "").replace(/\r/g, "");
       });
       const me = spk.find(x => x.side === "right");
-      e.chat = { raw: lines.join("\n\n"), speakers: spk, user: me ? me.name : "", mode: e.chat.mode || "novel", names: true, hideOoc: true };
+      e.chat = { raw: lines.join("\n\n"), speakers: spk, user: me ? me.name : "", mode: e.chat.mode || "novel", hideOoc: true };
     }
     return e;
   });
+  c.speakers = [];
+  c.episodes.forEach(e => { if (e.type === "chat" && e.chat) arr(e.chat.speakers).forEach(x => { if (x.side !== "nar" && !seriesSpeaker(c, x.name)) c.speakers.push({ name: x.name, color: x.color || "", avatar: x.avatar || "" }); }); });
   return c;
 }
 function stripTags(html){ const d = document.createElement("template"); d.innerHTML = html || ""; d.content.querySelectorAll("style").forEach(s => s.remove()); return d.content.textContent || ""; }
@@ -929,9 +931,36 @@ function tryJsonLog(raw){
   } catch (e){ return null; }
 }
 // 원문 → [{k:"nar"|"say"|"sys", name, text, time}]
-function parseChat(chat){
+/* 작품 화자 목록: 한 번 쓴 채팅 화자의 대표 색·프로필을 작품에 저장해 두고,
+   같은 작품 안의 같은 이름이면 어느 회차든 이 값으로 보여준다. */
+function seriesSpeaker(series, name){
+  return series && name ? arr(series.speakers).find(x => x && x.name === name) || null : null;
+}
+// 회차의 화자 값을 작품 목록에 올리고, 같은 이름을 쓰는 다른 회차에도 똑같이 맞춘다
+function syncSeriesSpeakers(series, list){
+  if (!series) return;
+  series.speakers = arr(series.speakers);
+  arr(list).forEach(x => {
+    if (!x || !str(x.name) || x.side === "nar" || NAR_NAMES.test(x.name)) return;
+    let reg = seriesSpeaker(series, x.name);
+    if (!reg){ reg = { name: x.name }; series.speakers.push(reg); }
+    reg.color = safeColor(x.color) || reg.color || "";
+    reg.avatar = str(x.avatar);
+  });
+  arr(series.episodes).forEach(ep => {
+    if (!ep || ep.type !== "chat" || !ep.chat) return;
+    arr(ep.chat.speakers).forEach(x => {
+      const reg = seriesSpeaker(series, x && x.name);
+      if (reg){ x.color = reg.color; x.avatar = reg.avatar; }
+    });
+  });
+}
+function parseChat(chat, series){
   const spk = arr(chat.speakers);
-  const cfg = (n) => spk.find(x => x.name === n) || null;
+  const cfg = (n) => {
+    const own = spk.find(x => x.name === n) || null, reg = seriesSpeaker(series, n);
+    return reg && own ? Object.assign({}, own, { color: reg.color || own.color, avatar: reg.avatar != null ? reg.avatar : own.avatar }) : (own || reg);
+  };
   const hide = chat.hideOoc !== false;
   const items = [];
   const nar = (text) => { text = str(text); if (text && !(hide && OOC_RE.test(text))) items.push({ k: "nar", text }); };
@@ -994,8 +1023,8 @@ function fmtInline(t){
   return esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\*/g, "");
 }
 const unquote = (t) => { const m = /^["“”「『'‘](.*)["“”」』'’]$/.exec(str(t)); return m ? m[1] : str(t); };
-function chatHtml(chat, mode){
-  const items = parseChat(chat);
+function chatHtml(chat, mode, series){
+  const items = parseChat(chat, series);
   let out = "";
   const sysBox = (it) => `<div class="sys">${it.text.split(/\n/).map(x => x.trim()).filter(Boolean).map(x => "<p>" + fmtInline(x) + "</p>").join("")}</div>`;
   if (mode === "bubble"){
@@ -1054,7 +1083,7 @@ function lum(hex){ const m = /^#?([0-9a-f]{6})$/i.exec(hex || ""); if (!m) retur
 function renderBody(host, s, e){
   const root = host.shadowRoot || host.attachShadow({ mode: "open" });
   let inner;
-  if (e.type === "chat") inner = chatHtml(e.chat || {}, RS.chatMode || (e.chat && e.chat.mode) || "novel");
+  if (e.type === "chat") inner = chatHtml(e.chat || {}, RS.chatMode || (e.chat && e.chat.mode) || "novel", s);
   else inner = bodyHtml(e.html);
   root.innerHTML = `<style>:host{display:block}${NV_CSS}</style><div class="nv${RS.indent ? " indent" : ""}">${inner}</div>`;
   root.querySelectorAll("img").forEach(i => i.addEventListener("error", () => i.remove()));
@@ -1270,7 +1299,7 @@ function openSettings(rd, s, e){
   syncColors();
 }
 function exportEpisode(s, e){
-  const inner = e.type === "chat" ? chatHtml(e.chat || {}, (e.chat && e.chat.mode) || "novel") : bodyHtml(e.html);
+  const inner = e.type === "chat" ? chatHtml(e.chat || {}, (e.chat && e.chat.mode) || "novel", s) : bodyHtml(e.html);
   const doc = `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(s.title)} - ${esc(e.title)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Serif+KR:wght@400;700&family=Gowun+Batang&display=swap" rel="stylesheet">
 <style>:root{--ink:#1d1d1f;--paper:#fbfaf7;--line:#e2e0da;--blue:${esc(hexOf(getComputedStyle(document.documentElement).getPropertyValue("--blue").trim() || "#0b4dff"))};--mute:#777;--faint:#aaa;--veil:rgba(0,0,0,.04);--veil2:rgba(0,0,0,.07);--blue-soft:rgba(11,77,255,.12);--serif:'Noto Serif KR',serif;--sans:system-ui,sans-serif;--kr-display:'Black Han Sans',sans-serif}
@@ -1327,6 +1356,17 @@ VIEWS.editSeries = function(p){
     castBox.appendChild(h("label", {}, cb, avatarEl(c), h("span", { text: c.name + (c.au ? " · " + c.au : "") })));
   });
   const manual = h("div", { class: "spk-list" });
+  const spkReg = h("div", { class: "spk-list" });
+  s.speakers = arr(s.speakers);
+  function drawReg(){
+    spkReg.textContent = "";
+    s.speakers.forEach((x, i) => spkReg.appendChild(h("div", { class: "spk", "--c": safeColor(x.color) || null },
+      h("input", { type: "color", value: hexOf(x.color), "aria-label": x.name + " 색", oninput: (ev) => { x.color = ev.target.value; ev.target.closest(".spk").style.setProperty("--c", x.color); } }),
+      h("b", { text: x.name }), h("span"),
+      h("button", { class: "ib", type: "button", "aria-label": x.name + " 목록에서 빼기", title: "목록에서만 빼요 (회차 원문은 그대로)", onclick: () => { s.speakers.splice(i, 1); drawReg(); }, text: "✕" }),
+      h("div", { class: "more2" }, h("input", { class: "in", value: x.avatar || "", placeholder: "말풍선 프로필 이미지 주소 (https://…)", oninput: (ev) => { x.avatar = ev.target.value.trim(); } })))));
+  }
+  drawReg();
   function drawManual(){
     manual.textContent = "";
     arr(s.cast).forEach((c, i) => {
@@ -1355,7 +1395,9 @@ VIEWS.editSeries = function(p){
     h("div", { class: "fld" }, h("span", { class: "lb", text: "등장인물" }),
       siteChars.length ? castBox : h("small", { text: "사이트 데이터 넘기기를 켜면 사이트의 캐릭터를 골라 넣을 수 있어요." }),
       manual,
-      h("div", {}, h("button", { class: "btn sm line", type: "button", onclick: () => { s.cast.push({ name: "", color: "#888888", role: "" }); drawManual(); }, text: "+ 직접 추가" })))));
+      h("div", {}, h("button", { class: "btn sm line", type: "button", onclick: () => { s.cast.push({ name: "", color: "#888888", role: "" }); drawManual(); }, text: "+ 직접 추가" }))),
+    arr(s.speakers).length ? h("div", { class: "fld" }, h("span", { class: "lb", text: "채팅 로그 화자 (작품 전체)" }),
+      h("small", { text: "채팅 회차에서 쓴 화자예요. 색·프로필을 바꾸면 이 작품의 모든 채팅 회차에서 같은 이름이 함께 바뀌어요." }), spkReg) : null));
 
   page.appendChild(h("div", { class: "foot-act" },
     h("span", { class: "grow", text: isNew ? "만든 뒤 회차를 추가할 수 있어요" : "" }),
@@ -1363,6 +1405,7 @@ VIEWS.editSeries = function(p){
     h("button", { class: "btn kr", type: "button", onclick: () => {
       if (!str(s.title)){ toast("작품 제목을 적어 주세요."); return; }
       s.title = str(s.title); s.cast = arr(s.cast).filter(c => str(c.name)); s.updated = today();
+      syncSeriesSpeakers(s, s.speakers);
       if (isNew) lib.series.unshift(s); else lib.series[lib.series.indexOf(src)] = s;
       markDirty(); stack.pop(); go("series", { id: s.id }, false);
       if (!LOCAL) toast("적용했어요. 위의 '사이트에 저장'을 눌러야 사이트에 남아요.");
@@ -1427,6 +1470,11 @@ VIEWS.editEpisode = function(p){
       if (e.type === "chat"){ delete e.html; e.chat.turns && delete e.chat.turns; } else { e.chat = null; }
       if (!str(e.title)) e.title = pad(n) + "화";
       if (src) s.episodes[s.episodes.indexOf(src)] = e; else s.episodes.push(e);
+      if (e.type === "chat"){
+        // 이 회차에서 실제로 말한 화자만 작품 목록에 남긴다
+        const used = new Set(parseChat(e.chat).filter(it => it.k === "say").map(it => it.name));
+        syncSeriesSpeakers(s, arr(e.chat.speakers).filter(x => used.has(x.name)));
+      }
       s.updated = today(); markDirty();
       stack.pop(); go("series", { id: s.id }, false);
       if (!LOCAL) toast("적용했어요. '사이트에 저장'을 눌러야 사이트에 남아요.");
@@ -1640,7 +1688,7 @@ function chatEditor(pane, e, series){
   function addNames(text, opts){
     String(text || "").split(/[,，\n]/).map(str).filter(Boolean).forEach(n => {
       if (SYS_NAMES.test(n) || c.speakers.some(x => x.name === n)) return;
-      const sc = (opts && opts.from) || siteChars.find(x => x.name === n) || arr(series && series.cast).find(x => x.name === n);
+      const sc = (opts && opts.from) || seriesSpeaker(series, n) || siteChars.find(x => x.name === n) || arr(series && series.cast).find(x => x.name === n);
       c.speakers.push({ name: n, color: sc && safeColor(sc.color) ? sc.color : PALETTE[c.speakers.length % PALETTE.length], avatar: sc ? (sc.avatar || "") : "", side: NAR_NAMES.test(n) ? "nar" : "left" });
     });
     if (!c.user){ const me = c.speakers.find(x => /^(나|user|유저|you|me)$/i.test(x.name)); if (me){ c.user = me.name; me.side = "right"; } }
@@ -1683,7 +1731,9 @@ function chatEditor(pane, e, series){
       c.raw = raw.value; c.mode = mode.value; c.hideOoc = ooc.checked;
       const tmp = Object.assign({}, e, { type: "chat", chat: c });
       const saved = RS.chatMode; RS.chatMode = "";
-      renderBody(prevHost, {}, tmp);
+      // 미리보기: 지금 고른 색이 작품 목록보다 먼저 (적용하면 작품 전체가 이 색으로 바뀜)
+      const pv = { speakers: arr(series && series.speakers).filter(r => !c.speakers.some(x => x.name === r.name)) };
+      renderBody(prevHost, pv, tmp);
       RS.chatMode = saved;
     }, 180);
   }
@@ -1691,10 +1741,16 @@ function chatEditor(pane, e, series){
   userSel.addEventListener("change", () => { c.user = userSel.value; c.speakers.forEach(x => { if (x.side !== "nar") x.side = x.name === c.user ? "right" : "left"; }); drawSpeakers(); preview(); });
   [mode, ooc].forEach(x => x.addEventListener("change", preview));
 
-  // 새 채팅 회차: 작품 등장인물 이름을 미리 화자로
-  if (!c.speakers.length && arr(series && series.cast).length) addNames(series.cast.map(x => x.name).join(","));
+  // 이미 저장된 작품 화자 값으로 맞춰 두기 (다른 회차에서 바꾼 색이 여기에도 보이게)
+  c.speakers.forEach(x => { const reg = seriesSpeaker(series, x.name); if (reg){ if (reg.color) x.color = reg.color; x.avatar = reg.avatar || ""; } });
+  // 새 채팅 회차: 작품에서 써 온 화자 → 등장인물 순으로 미리 넣어 둔다
+  if (!c.speakers.length){
+    const pre = arr(series && series.speakers).map(x => x.name).concat(arr(series && series.cast).map(x => x.name));
+    if (pre.length) addNames(pre.join(","));
+  }
 
   pane.appendChild(h("div", { class: "help", style: { marginBottom: "12px" }, html:
+    "· 화자의 <b>색과 프로필은 작품 전체에 저장</b>돼요. 여기서 바꾸고 적용하면 같은 작품의 같은 이름 화자가 모든 회차에서 함께 바뀌어요.<br>" +
     "① 먼저 <b>화자 이름</b>을 정해 두세요. 정한 이름으로 시작하는 <code>이름: 대사</code> 줄만 그 사람의 대사가 되고, 대사는 <code>:</code> 뒤의 문장만이에요.<br>" +
     "② 그 밖의 줄은 전부 지문이에요. <code>*행동*</code>이든 그냥 서술이든 같은 본문으로 보여줘요. 대사 줄 안의 <code>*별표*</code> 부분도 지문으로 떼어 내요.<br>" +
     "③ <code>시스템: …</code> 은 시스템 창으로 따로 보여줘요. 빈 줄이 나올 때까지 이어진 줄도 같은 창에 들어가요.<br>" +
@@ -1703,6 +1759,7 @@ function chatEditor(pane, e, series){
     h("div", { style: { display: "flex", flexDirection: "column", gap: "12px", minWidth: "0" } },
       h("div", { class: "fld" }, h("span", { class: "lb", text: "① 화자 이름" }),
         h("div", { class: "inline" }, nameIn, h("button", { class: "btn sm kr", type: "button", onclick: () => { addNames(nameIn.value); nameIn.value = ""; }, text: "추가" }),
+          arr(series && series.speakers).length ? h("button", { class: "btn sm line", type: "button", onclick: () => addNames(series.speakers.map(x => x.name).join(",")), text: "작품 화자 불러오기" }) : null,
           arr(series && series.cast).length ? h("button", { class: "btn sm line", type: "button", onclick: () => addNames(series.cast.map(x => x.name).join(",")), text: "등장인물 불러오기" }) : null),
         spkList, suggest),
       h("div", { class: "inline" },
