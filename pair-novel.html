@@ -8,30 +8,55 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Serif+KR:wght@400;600;700&family=Gowun+Batang:wght@400;700&family=Nanum+Myeongjo:wght@400;700&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css" rel="stylesheet">
+<!-- LOPE 관리자 › 이 페이지 설정에 나오는 칸 (LOPE가 읽어서 편집 서랍에 보여준다) -->
+<script type="application/json" id="lope-settings">
+[
+  {"key":"bigTitle","type":"text","label":"큰 제목","placeholder":"NOVEL","help":"서재 맨 위의 큰 글씨. 비우면 NOVEL","value":""},
+  {"key":"smallTitle","type":"text","label":"작은 제목 (포인트 색)","placeholder":"ARCHIVE","help":"큰 제목 아래 포인트 색 글씨. 비우면 ARCHIVE","value":""},
+  {"key":"motto","type":"textarea","label":"작은 문구","placeholder":"STORIES / KEPT / FURTHER / THAN NOISE.","help":"큰 제목 옆 작은 영문. 줄바꿈 그대로","value":""},
+  {"key":"mode","type":"select","label":"밝기","options":[["auto","사이트 스킨 따라가기"],["light","항상 밝게"],["dark","항상 어둡게"]],"value":"auto"},
+  {"key":"customAccent","type":"checkbox","label":"포인트 색 직접 정하기","help":"끄면 스킨의 포인트 색을 그대로 씁니다","value":false},
+  {"key":"accent","type":"color","label":"포인트 색","value":"#0b4dff","showIf":{"key":"customAccent","in":["true"]}},
+  {"key":"grid","type":"checkbox","label":"격자 무늬 깔기","value":true},
+  {"key":"safeTop","type":"number","label":"위쪽 비울 높이 (px)","help":"스킨 메뉴와 겹칠 때만. 0이면 자동","min":0,"max":200,"value":0}
+]
+</script>
+<script>
+/* 첫 화면이 그려지기 전에 스킨·밝기를 맞춰 둔다 (깜빡임 방지) */
+(function(){
+  var L = window.LOPE_HTML_PAGE || {}, t = L.theme || {}, st = L.settings || {}, r = document.documentElement;
+  if (t.skin) r.setAttribute("data-skin", String(t.skin));
+  var m = st.mode === "light" || st.mode === "dark" ? st.mode : (L.pageId && typeof t.dark === "boolean" ? (t.dark ? "dark" : "light") : "");
+  if (m) r.setAttribute("data-mode", m);
+})();
+</script>
 <style>
 /* ───────────────────────── 토큰 ───────────────────────── */
 :root{
-  /* LOPE 밖에서 열었을 때 쓰는 기본값 (라이트) */
-  --fb-bg:#f0efeb; --fb-ink:#151517; --fb-line:#d6d4ce; --fb-accent:#0b4dff;
   --display:'Anton','Black Han Sans','Pretendard',sans-serif;
   --kr-display:'Black Han Sans','Anton','Pretendard',sans-serif;
   --mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',monospace;
   --sans:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;
   --serif:'Noto Serif KR','Nanum Myeongjo','AppleMyungjo','Batang',serif;
   --ease:cubic-bezier(.2,.8,.2,1);
+  --rsv:0px;        /* 오른쪽 편집 서랍이 가리는 폭 */
+  --safe-top:0px;   /* 스킨 메뉴 단추가 가리는 높이 */
+  /* 밝은 바탕 */
+  --paper-d:#f0efeb; --ink:#151517; --line:#d6d4ce;
 }
+/* 어두운 바탕: 사이트가 알려준 밝기(data-mode) → LOPE 다크 표시 → 기기 설정 순서 */
+:root[data-mode="dark"], :root[data-lope-theme="dark"]:not([data-mode]){ --paper-d:#0e0f12; --ink:#ecebe6; --line:#2a2c33; }
 @media (prefers-color-scheme:dark){
-  :root:not([data-lope-theme="light"]){ --fb-bg:#0e0f12; --fb-ink:#ecebe6; --fb-line:#2a2c33; --fb-accent:#3a6dff; }
+  :root:not([data-mode]):not([data-lope-theme="light"]){ --paper-d:#0e0f12; --ink:#ecebe6; --line:#2a2c33; }
 }
-html[data-lope-theme="dark"]{ --fb-bg:#0e0f12; --fb-ink:#ecebe6; --fb-line:#2a2c33; --fb-accent:#3a6dff; }
-
 :root{
-  --blue:  var(--lope-accent, var(--fb-accent));
-  --ink:   var(--lope-text,   var(--fb-ink));
-  --paper: var(--lope-bg,     var(--fb-bg));
-  --line:  var(--lope-line,   var(--fb-line));
+  --paper: var(--site-bg, var(--paper-d));                         /* 사이트 실제 배경색이 오면 그 색 */
+  --blue:  var(--accent-own, var(--lope-accent, #0b4dff));         /* 직접 정한 색 → 스킨 포인트 색 */
   --on-blue:#fff;
 }
+/* PV 계열 스킨은 .site 에 color-scheme 을 걸어 둔다 → 같게 맞춰야 iframe 이 투명하게 비친다 */
+:root[data-skin="pv"]{ color-scheme:light; }
+:root[data-skin="pv"][data-mode="dark"]{ color-scheme:dark; }
 /* 색에서 파생되는 값 — 읽기 테마가 --ink 를 바꾸면 여기서 다시 계산되도록 여러 곳에 선언 */
 :root, .rd, .nv{
   --mute:  color-mix(in srgb, var(--ink) 58%, transparent);
@@ -49,6 +74,8 @@ body{
   font-family:var(--sans); font-size:15px; line-height:1.6;
   -webkit-text-size-adjust:100%; overflow:hidden;
 }
+/* 사이트에 배경 이미지가 없을 때만 실제 배경색을 깐다 (이미지는 그대로 비치게) */
+:root.solid-bg body{ background:var(--paper); }
 body::before{ /* 스킨의 옅은 격자 */
   content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
   background-image:
@@ -56,6 +83,7 @@ body::before{ /* 스킨의 옅은 격자 */
     linear-gradient(to bottom, color-mix(in srgb, var(--ink) 4%, transparent) 1px, transparent 1px);
   background-size:56px 56px;
 }
+:root.no-grid body::before{ display:none; }
 button{ font:inherit; color:inherit; cursor:pointer; background:none; border:0; padding:0; }
 button:disabled{ opacity:.38; cursor:default; }
 input,select,textarea{ font:inherit; color:inherit; }
@@ -63,8 +91,10 @@ img{ max-width:100%; }
 [hidden]{ display:none !important; }
 :focus-visible{ outline:2px solid var(--blue); outline-offset:2px; }
 
-#app{ position:relative; z-index:1; height:100%; overflow:auto; overflow-x:hidden; scroll-behavior:auto; }
-.page{ max-width:1180px; margin:0 auto; padding:clamp(14px,3.4vw,40px); padding-bottom:90px; }
+/* 편집 서랍이 펼쳐지면 #frame 이 그만큼 좁아진다. 안쪽 고정 요소도 #frame 기준(container → 포함 블록) */
+#frame{ position:fixed; top:0; left:0; bottom:0; right:var(--rsv); z-index:1; container-type:inline-size; contain:layout style; overflow:hidden; transition:right .35s var(--ease); }
+#app{ position:relative; height:100%; overflow:auto; overflow-x:hidden; scroll-behavior:auto; }
+.page{ max-width:1180px; margin:0 auto; padding:clamp(14px,3.4vw,40px); padding-top:calc(clamp(14px,3.4vw,40px) + var(--safe-top)); padding-bottom:90px; }
 
 /* ───────────────────────── 공통 조각 ───────────────────────── */
 .mono{ font-family:var(--mono); font-size:10.5px; letter-spacing:.22em; text-transform:uppercase; font-weight:500; }
@@ -303,9 +333,9 @@ button.chip:hover:not(.on){ border-color:var(--blue); color:var(--blue); }
   backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
   transition:transform .35s var(--ease);
 }
-.rd-top{ top:0; border-bottom:1px solid var(--line); }
+.rd-top{ top:var(--safe-top); border-bottom:1px solid var(--line); }
 .rd-bot{ bottom:0; border-top:1px solid var(--line); }
-.rd.hide-ui .rd-top{ transform:translateY(-105%); }
+.rd.hide-ui .rd-top{ transform:translateY(calc(-100% - var(--safe-top) - 4px)); }
 .rd.hide-ui .rd-bot{ transform:translateY(105%); }
 .rd-top .bin, .rd-bot .bin{ max-width:1180px; margin:0 auto; display:flex; align-items:center; gap:8px; padding:8px clamp(10px,3vw,24px); }
 .rd-top .where{ flex:1; min-width:0; text-align:center; }
@@ -316,16 +346,16 @@ button.chip:hover:not(.on){ border-color:var(--blue); color:var(--blue); }
 .ib.fill{ background:var(--blue); color:var(--on-blue); border-color:var(--blue); }
 .ib svg{ width:16px; height:16px; }
 .rd-bot .pg{ flex:1; text-align:center; font-family:var(--mono); font-size:11px; letter-spacing:.14em; color:var(--mute); }
-.rd-prog{ position:fixed; top:0; left:0; height:3px; z-index:21; background:var(--blue); width:0; }
-.rd-pct{ position:fixed; right:clamp(14px,2.4vw,34px); top:76px; bottom:80px; z-index:5; display:flex; flex-direction:column; align-items:flex-end; gap:8px; pointer-events:none; }
+.rd-prog{ position:fixed; top:var(--safe-top); left:0; height:3px; z-index:21; background:var(--blue); width:0; }
+.rd-pct{ position:fixed; right:clamp(14px,2.4vw,34px); top:calc(76px + var(--safe-top)); bottom:80px; z-index:5; display:flex; flex-direction:column; align-items:flex-end; gap:8px; pointer-events:none; }
 .rd-pct .mono{ font-size:9.5px; color:var(--faint); }
 .rd-pct b{ font-family:var(--display); font-weight:400; font-size:44px; line-height:1; }
 .rd-pct b small{ font-size:14px; color:var(--blue); margin-left:2px; }
 .rd-pct .track{ flex:1; width:2px; background:var(--line); margin-right:14px; position:relative; }
 .rd-pct .track i{ position:absolute; left:0; right:0; top:0; height:0; background:var(--blue); }
-@media (max-width:1060px){ .rd-pct{ display:none; } }
+@container (max-width:1060px){ .rd-pct{ display:none; } }
 
-.rd-main{ max-width:var(--r-w); margin:0 auto; padding:84px clamp(16px,4.5vw,28px) 120px; }
+.rd-main{ max-width:var(--r-w); margin:0 auto; padding:calc(84px + var(--safe-top)) clamp(16px,4.5vw,28px) 120px; }
 .rd-head{ margin-bottom:clamp(30px,7vw,52px); }
 .rd-head .mono{ display:block; color:var(--blue); }
 .rd-head h1{ margin:14px 0 8px; font-family:var(--kr-display); font-weight:400; font-size:clamp(28px,6vw,44px); line-height:1.15; word-break:keep-all; overflow-wrap:anywhere; animation:rise .7s var(--ease) both; }
@@ -359,7 +389,7 @@ button.chip:hover:not(.on){ border-color:var(--blue); color:var(--blue); }
 /* 오른쪽에서 나오는 파란 목차 — 스킨의 MENU 패널 */
 .drawer-bg{ position:fixed; inset:0; z-index:40; background:color-mix(in srgb, var(--paper) 55%, transparent); backdrop-filter:blur(3px); animation:fade .3s both; }
 .drawer{
-  position:fixed; top:0; right:0; bottom:0; z-index:41; width:min(460px,92vw);
+  position:fixed; top:var(--safe-top); right:0; bottom:0; z-index:41; width:min(460px,92%);
   background:var(--blue); color:var(--on-blue); display:flex; flex-direction:column;
   clip-path:polygon(34px 0, 100% 0, 100% 100%, 0 100%, 0 34px);
   animation:slideR .45s var(--ease) both;
@@ -437,7 +467,7 @@ textarea.in{ resize:vertical; line-height:1.7; }
 
 /* 리치 에디터 */
 .tb{
-  position:sticky; top:0; z-index:7; display:flex; flex-wrap:wrap; gap:3px; padding:6px;
+  position:sticky; top:var(--safe-top); z-index:7; display:flex; flex-wrap:wrap; gap:3px; padding:6px;
   background:var(--glass); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
   border:1px solid var(--line); border-bottom:2px solid var(--blue);
 }
@@ -493,7 +523,7 @@ textarea.in{ resize:vertical; line-height:1.7; }
 .toast::before{ content:""; display:inline-block; width:7px; height:7px; background:var(--blue); margin-right:10px; vertical-align:1px; }
 
 /* ───────────────────────── 반응형 ───────────────────────── */
-@media (max-width:760px){
+@container (max-width:760px){
   .mast{ grid-template-columns:1fr; }
   .mast .side{ flex-direction:row; flex-wrap:wrap; justify-content:space-between; align-items:flex-end; padding-bottom:0; }
   .feat{ grid-template-columns:1fr; clip-path:polygon(0 0, calc(100% - 28px) 0, 100% 28px, 100% 100%, 28px 100%, 0 calc(100% - 28px)); }
@@ -503,7 +533,7 @@ textarea.in{ resize:vertical; line-height:1.7; }
   .chat-ed{ grid-template-columns:1fr; }
   .chat-ed .prev{ position:static; max-height:none; }
 }
-@media (max-width:480px){
+@container (max-width:480px){
   .page{ padding:14px 14px 90px; }
   .grid{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px 12px; }
   .card .mt b{ font-size:16px; }
@@ -515,11 +545,11 @@ textarea.in{ resize:vertical; line-height:1.7; }
   .opt{ grid-template-columns:1fr; gap:6px; }
   .rd-top .ib .lbl{ display:none; }
 }
-@media (max-width:340px){ .grid{ grid-template-columns:1fr; } }
+@container (max-width:340px){ .grid{ grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
-<main id="app" aria-live="polite"></main>
+<div id="frame"><main id="app" aria-live="polite"></main></div>
 
 <script>
 (function(){
@@ -529,6 +559,12 @@ const SITE = L.siteData || null;
 const LOCAL = !L.pageId;                      // LOPE 밖에서 파일로 연 경우
 const CAN_EDIT = L.admin === true || LOCAL;   // 주인이거나, 파일 미리보기
 const app = document.getElementById("app");
+const FRAME = document.getElementById("frame");
+const ROOT = document.documentElement;
+const EDITING = L.admin === true && !LOCAL;   // LOPE 편집 모드(오른쪽 서랍이 있는 상태)
+const SKIN = str0((L.theme || {}).skin);
+let SET = Object.assign({ bigTitle: "", smallTitle: "", motto: "", mode: "auto", customAccent: false, accent: "#0b4dff", grid: true, safeTop: 0 }, L.settings || {});
+function str0(v){ return v == null ? "" : String(v).trim(); }
 
 /* ═══════════════════════ 본문(소설·채팅) 공용 스타일 ═══════════════════════
    뷰어에서는 Shadow DOM 안에, 에디터에서는 문서에 그대로 들어간다.        */
@@ -628,6 +664,15 @@ const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()).replace(/-/g, "").slice(0, 12);
 const pad = (n) => String(n).padStart(2, "0");
 const isUrl = (s) => /^(https?:\/\/|data:image\/)/i.test(str(s));
+// 사이트 데이터의 그림은 "/img/…", "sample/a.svg" 처럼 상대 경로로 온다 → 사이트 주소 기준 절대 주소로
+function media(v){
+  const s = str(v);
+  if (!s) return "";
+  if (/^(https?:\/\/|data:image\/|blob:)/i.test(s)) return s;
+  if (/\s/.test(s) || /^[a-z][a-z0-9+.-]*:/i.test(s)) return "";
+  if (!(/^(\/|\.{1,2}\/)/.test(s) || s.includes("/") || /\.(png|jpe?g|gif|webp|svg|avif|bmp)(\?|#|$)/i.test(s))) return "";
+  try { return new URL(s, s.startsWith("/") && L.mediaBase ? L.mediaBase : document.baseURI).href; } catch (e){ return ""; }
+}
 const today = () => { const d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
 const fmtDate = (s) => str(s).replace(/-/g, ".");
 const daysAgo = (s) => { const t = Date.parse(str(s)); return isNaN(t) ? 1e9 : (Date.now() - t) / 864e5; };
@@ -653,7 +698,7 @@ let toastT;
 function toast(msg){
   document.querySelectorAll(".toast").forEach(t => t.remove());
   const t = h("div", { class: "toast", role: "status", text: msg });
-  document.body.appendChild(t);
+  FRAME.appendChild(t);
   clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 3400);
 }
 function download(name, text, type){
@@ -729,8 +774,8 @@ const siteChars = (() => {
     if (seen.has(k)) return; seen.add(k);
     out.push({
       name: str(c.name), eng: str(c.eng), role: str(c.role), color: safeColor(c.color),
-      avatar: [c.profileImage, c.image, c.icon].map(str).find(isUrl) || "",
-      icon: (str(c.icon) && !isUrl(c.icon) && str(c.icon).length <= 4) ? str(c.icon) : "",
+      avatar: [c.profileImage, c.image, c.icon].map(media).find(Boolean) || "",
+      icon: (str(c.icon) && !media(c.icon) && str(c.icon).length <= 4) ? str(c.icon) : "",
       intro: str(c.short) || str(c.intro), au: au || "", key: c.key || ""
     });
   };
@@ -742,9 +787,9 @@ const siteChars = (() => {
 const siteImages = (() => {
   const out = [];
   if (!SITE) return out;
-  arr(SITE.gallery).forEach(g => arr(g && g.items).forEach(it => { if (isUrl(it && it.image) && !it.r18) out.push({ src: it.image, title: str(it.title) }); }));
+  arr(SITE.gallery).forEach(g => arr(g && g.items).forEach(it => { if (media(it && it.image) && !it.r18) out.push({ src: media(it.image), title: str(it.title) }); }));
   siteChars.forEach(c => { if (c.avatar) out.push({ src: c.avatar, title: c.name }); });
-  arr(SITE.timeline).forEach(t => { if (isUrl(t && t.image)) out.push({ src: t.image, title: str(t.title) }); });
+  arr(SITE.timeline).forEach(t => { if (media(t && t.image)) out.push({ src: media(t.image), title: str(t.title) }); });
   return out;
 })();
 
@@ -764,7 +809,7 @@ function buildSiteSeries(){
   (tlp.length ? tlp : tl).forEach((t, i) => {
     if (t.locked){ eps.push({ id: "st" + i, locked: true, title: "잠긴 기록", date: str(t.year) }); return; }
     eps.push({ id: "st" + i, type: "novel", title: str(t.title) || str(t.year) || "기록", date: "", label: str(t.year),
-      spoiler: !!t.spoiler, html: (isUrl(t.image) ? `<figure><img src="${esc(t.image)}" alt=""></figure>` : "") + textToHtml(t.text) });
+      spoiler: !!t.spoiler, html: (media(t.image) ? `<figure><img src="${esc(media(t.image))}" alt=""></figure>` : "") + textToHtml(t.text) });
   });
   arr(SITE.dialogue).forEach(w => {
     const scenes = [];
@@ -775,7 +820,7 @@ function buildSiteSeries(){
       eps.push({ id: "sd" + eps.length, type: "chat", title: str(s.title) || "대화", label: str(s.subtitle) || "대화 기록",
         chat: { mode: "novel", names: true, turns: arr(s.messages).map(m => ({
           name: m.side === "narration" ? "" : str(m.name), side: m.side === "narration" ? "nar" : (m.side === "right" ? "right" : "left"),
-          color: safeColor(m.color), avatar: isUrl(m.icon) ? m.icon : "", text: str(m.text), time: str(m.time) })) } });
+          color: safeColor(m.color), avatar: media(m.icon), text: str(m.text), time: str(m.time) })) } });
     });
   });
   if (!eps.length) return null;
@@ -783,7 +828,7 @@ function buildSiteSeries(){
   return {
     id: "__site", readonly: true, title: str(site.pairName) || str(site.title) || "사이트 기록",
     tagline: str(site.pairLine) || (rel ? str(rel.subtitle) : ""), author: str(site.title), genre: "기록", status: "ongoing", age: "all",
-    tags: rel ? arr(rel.keywords).map(str).filter(Boolean) : [], intro: rel ? str(rel.summary) : "", cover: str(L.heroImage),
+    tags: rel ? arr(rel.keywords).map(str).filter(Boolean) : [], intro: rel ? str(rel.summary) : "", cover: media(L.heroImage),
     cast: pair.map(c => siteChars.find(x => x.key === c.key && !x.au) || { name: str(c.name), color: safeColor(c.color) }),
     episodes: eps
   };
@@ -819,12 +864,37 @@ function sampleLib(){
 }
 function emptyLib(){ return { lopeNovel: 1, title: "NOVEL", sub: "ARCHIVE", motto: "STORIES\nKEPT\nFURTHER\nTHAN NOISE.", showSite: true, series: [] }; }
 
+/* ═══════════════════════ 저장 형식 ═══════════════════════
+   LOPE 는 richText 를 "글 꾸밈 HTML"로 보고 정리기(safeHtmlPageRichText)를 거친다.
+   JSON 안의 <p class="…"> 같은 글자가 진짜 태그로 읽혀 속성이 지워지므로,
+   < > & 와 nbsp 를 \uXXXX 로 바꿔 태그가 하나도 없는 순수 글자로 보낸다. 상한은 200,000자.   */
+const STORE_PREFIX = "LOPENOVEL1:";
+const STORE_MAX = 200000;
+let recovered = false;
+function encodeStore(o){
+  return STORE_PREFIX + JSON.stringify(o).replace(/&/g, "\\u0026").replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/\u00a0/g, "\\u00a0");
+}
+function decodeStore(raw){
+  if (raw && typeof raw === "object") return raw.lopeNovel ? raw : null;
+  let t = String(raw || "").trim();
+  if (!t) return null;
+  if (t.startsWith(STORE_PREFIX)) t = t.slice(STORE_PREFIX.length);
+  try { const j = JSON.parse(t); if (j && j.lopeNovel) return j; } catch (e) {}
+  // 예전 저장분: 정리기가 &amp; &lt; 등으로 바꿔 둔 것을 되돌려 본다
+  try {
+    const u = t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, "\u00a0").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+    const j = JSON.parse(u); if (j && j.lopeNovel){ recovered = true; return j; }
+  } catch (e) {}
+  return null;
+}
+
 /* ═══════════════════════ 불러오기 ═══════════════════════ */
 function loadLib(){
   let raw = L.richText;
-  if (raw && typeof raw === "object" && raw.lopeNovel) return normalizeLib(raw);
+  const j0 = decodeStore(raw);
+  if (j0) return normalizeLib(j0);
   if (typeof raw === "string" && raw.trim()){
-    try { const j = JSON.parse(raw); if (j && j.lopeNovel) return normalizeLib(j); } catch (e) {}
+    if (/lopeNovel/.test(raw)){ recovered = "broken"; return emptyLib(); }
     // 예전 버전(# 제목으로 나눈 원고) → 작품 하나로 옮겨 담기
     const lib = emptyLib(), eps = []; let cur = null;
     raw.replace(/\r/g, "").split("\n").forEach(line => {
@@ -861,14 +931,21 @@ const ageOk = new Set();
 const opened = new Set();           // 스포일러 펼친 회차
 function markDirty(){ dirty = true; document.querySelectorAll(".adminbar").forEach(b => updateAdminBar(b)); }
 
-function pack(){ const o = JSON.parse(JSON.stringify(lib)); delete o.demo; return o; }
+function pack(){ const o = JSON.parse(JSON.stringify(lib)); delete o.demo; delete o.resume; return o; }
+const storeSize = () => encodeStore(pack()).length;
 function saveToSite(){
-  const json = JSON.stringify(pack());
   if (LOCAL){ toast("LOPE 밖에서는 사이트에 저장할 수 없어요. '백업 받기'로 파일을 남겨 두세요."); return; }
-  parent.postMessage({ type: "lope-html-page-save-rich-text", pageId: L.pageId, richText: json }, "*");
+  // 저장 뒤 LOPE 가 페이지를 다시 열면 지금 보던 화면으로 돌아오도록 표시해 둔다 (주인에게만 적용)
+  const o = pack(); o.resume = cur ? { view: cur.view === "editEpisode" || cur.view === "editSeries" ? "library" : cur.view, params: cur.params, at: Date.now() } : null;
+  const text = encodeStore(o);
+  if (text.length > STORE_MAX){
+    toast("저장 칸이 넘쳐요 (" + text.length.toLocaleString() + " / " + STORE_MAX.toLocaleString() + "자). 파일로 넣은 사진을 주소로 바꾸거나 회차를 줄여 주세요. 먼저 '백업 받기'를 눌러 두세요.");
+    return;
+  }
+  parent.postMessage({ type: "lope-html-page-save-rich-text", pageId: L.pageId, richText: text }, "*");
   dirty = false; lib.demo = false;
   document.querySelectorAll(".adminbar").forEach(b => updateAdminBar(b));
-  toast("저장을 요청했어요 (" + kb(json) + "KB). 페이지가 새로 열리면 반영된 상태로 보여요.");
+  toast("저장 중… (" + Math.round(text.length / STORE_MAX * 100) + "% 사용)");
 }
 function exportBackup(){
   download("novel-archive-" + today() + ".json", JSON.stringify(pack(), null, 1), "application/json");
@@ -906,8 +983,8 @@ function back(){
 /* ═══════════════════════ 공용: 표지 ═══════════════════════ */
 function coverEl(s, idx, cls){
   const box = h("div", { class: "cv brk " + (cls || ""), "--c": safeColor(s.color) || null });
-  if (isUrl(s.cover)){
-    const i = img(s.cover, s.title);
+  if (media(s.cover)){
+    const i = img(media(s.cover), s.title);
     i.addEventListener("error", () => box.appendChild(phBox(s, idx)));
     box.appendChild(i);
   } else box.appendChild(phBox(s, idx));
@@ -933,7 +1010,7 @@ function badges(s){
 const epCount = (s) => arr(s.episodes).filter(e => !e.locked).length;
 function avatarEl(c, cls){
   const a = h("div", { class: cls || "ava", "--c": safeColor(c.color) || null });
-  if (isUrl(c.avatar)){ const i = img(c.avatar, c.name); i.addEventListener("error", () => { a.textContent = c.icon || str(c.name)[0] || "?"; }); a.appendChild(i); }
+  if (media(c.avatar)){ const i = img(media(c.avatar), c.name); i.addEventListener("error", () => { a.textContent = c.icon || str(c.name)[0] || "?"; }); a.appendChild(i); }
   else a.textContent = c.icon || str(c.name)[0] || "?";
   return a;
 }
@@ -943,14 +1020,17 @@ function updateAdminBar(bar){
   bar.classList.toggle("dirty", dirty);
   const st = bar.querySelector(".st span");
   if (st) st.textContent = LOCAL ? "파일 미리보기 · 저장되지 않음" : (dirty ? "저장 안 된 변경이 있어요" : "EDIT MODE · 저장됨");
+  const use = bar.querySelector(".use");
+  if (use){ const n = storeSize(); use.textContent = "저장 칸 " + Math.min(999, Math.round(n / STORE_MAX * 100)) + "%"; use.title = n.toLocaleString() + " / " + STORE_MAX.toLocaleString() + "자"; use.classList.toggle("red", n > STORE_MAX * .9); }
 }
 function adminBar(extra){
   if (!CAN_EDIT) return null;
   const bar = h("div", { class: "adminbar" },
-    h("div", { class: "st" }, h("i", { class: "dot" }), h("span")),
+    h("div", { class: "st" }, h("i", { class: "dot" }), h("span"), LOCAL ? null : h("b", { class: "chip use" })),
     extra || null,
     h("button", { class: "btn sm line", type: "button", onclick: exportBackup, text: "백업 받기" }),
     h("button", { class: "btn sm line", type: "button", onclick: importBackup, text: "백업 불러오기" }),
+    EDITING ? h("button", { class: "btn sm line", type: "button", title: "LOPE 편집창이 이 페이지를 가릴 때 그만큼 비켜 줍니다", onclick: (e) => cycleRsv(e.currentTarget), text: "편집창 자리: " + ({ auto: "자동", rail: "접힘", open: "펼침", none: "없음" })[rsvMode] }) : null,
     LOCAL ? null : h("button", { class: "btn sm", type: "button", onclick: saveToSite, text: "사이트에 저장" }));
   updateAdminBar(bar);
   return bar;
@@ -967,14 +1047,14 @@ VIEWS.library = function(){
   const tkHtml = tk.concat(tk).map(t => "<span>" + t + "</span>").join("");
   page.appendChild(h("div", { class: "ticker", "aria-hidden": "true" }, h("div", { html: tkHtml + tkHtml })));
 
-  const t1 = str(lib.title) || "NOVEL", t2 = str(lib.sub);
+  const t1 = str(SET.bigTitle) || str(lib.title) || "NOVEL", t2 = str(SET.smallTitle) || str(lib.sub);
   const kr = /[가-힣]/.test(t1 + t2);
   const word = (w, cls) => { const s = h("span", { class: "w " + cls }); [...w].forEach((ch, i) => s.appendChild(h("span", { "--i": i + (cls === "w2" ? 4 : 0), text: ch === " " ? " " : ch }))); return s; };
   page.appendChild(h("header", { class: "mast" },
     h("div", { class: "top" }, h("span", { class: "mono", text: "IF" }), barcode(t1 + t2, 22), h("span", { class: "mono", text: "ARCHIVE / " + pad(series.length) })),
     h("h1", { class: kr ? "kr" : "" }, word(t1, "w1"), t2 ? word(t2, "w2") : null),
     h("div", { class: "side" },
-      h("div", { class: "motto a-fade", text: str(lib.motto) }),
+      h("div", { class: "motto a-fade", text: str(SET.motto) ? SET.motto : str(lib.motto) }),
       h("div", { class: "count" },
         h("div", {}, h("b", { html: "<em>" + pad(series.length) + "</em>" }), h("span", { class: "mono mute", text: "SERIES" })),
         h("div", {}, h("b", { text: pad(totalEps) }), h("span", { class: "mono mute", text: "EPISODES" }))))));
@@ -1012,7 +1092,7 @@ VIEWS.library = function(){
       h("div", { class: "go" },
         h("button", { class: "btn white", type: "button", onclick: (e) => { e.stopPropagation(); const i = firstReadable(f); if (i >= 0) go("reader", { id: f.id, i }); }, disabled: firstReadable(f) < 0 || null }, "READ ▶"),
         h("span", { class: "mono", style: { color: "rgba(255,255,255,.8)" }, text: "OPEN FILE ↗" }))),
-    h("div", { class: "cv" }, isUrl(f.cover) ? img(f.cover, "") : h("div", { class: "ph" })),
+    h("div", { class: "cv" }, media(f.cover) ? img(media(f.cover), "") : h("div", { class: "ph" })),
     h("span", { class: "big", "aria-hidden": "true", text: pad(fi + 1) }));
   page.appendChild(feat);
 
@@ -1055,15 +1135,21 @@ function moveItem(a, i, d){ const j = i + d; if (j < 0 || j >= a.length) return;
 const firstReadable = (s) => arr(s.episodes).findIndex(e => !e.locked);
 
 function libSettings(){
-  const t = h("input", { class: "in", value: lib.title || "" }), s2 = h("input", { class: "in", value: lib.sub || "" });
-  const m = h("textarea", { class: "in", rows: 4 }); m.value = lib.motto || "";
+  const t = h("input", { class: "in", value: str(SET.bigTitle) || lib.title || "" }), s2 = h("input", { class: "in", value: str(SET.smallTitle) || lib.sub || "" });
+  const m = h("textarea", { class: "in", rows: 4 }); m.value = str(SET.motto) ? SET.motto : (lib.motto || "");
   const sh = h("input", { type: "checkbox", checked: lib.showSite !== false });
   modal("서재 설정", [
     h("div", { class: "form", style: { marginTop: 0 } },
       h("div", { class: "row2" }, h("div", { class: "fld" }, h("label", { text: "큰 제목 1" }), t), h("div", { class: "fld" }, h("label", { text: "큰 제목 2 (포인트 색)" }), s2)),
       h("div", { class: "fld" }, h("label", { text: "작은 문구 (줄바꿈 가능)" }), m),
-      siteSeries ? h("label", { class: "chk" }, sh, "사이트의 연표·대화를 '" + siteSeries.title + "' 작품으로 같이 보여주기") : null)
-  ], () => { lib.title = str(t.value); lib.sub = str(s2.value); lib.motto = m.value; lib.showSite = sh.checked; markDirty(); go("library", {}, false); });
+      siteSeries ? h("label", { class: "chk" }, sh, "사이트의 연표·대화를 '" + siteSeries.title + "' 작품으로 같이 보여주기") : null,
+      h("p", { class: "help", html: "제목·문구는 <b>LOPE 관리자 › 이 페이지 설정</b>에서도 고칠 수 있고, 여기서 고치면 그쪽에도 바로 들어가요.<br>" +
+        "사이트 메뉴에 보이는 이름 중 <b>작은 이름</b>은 관리자 › 부가기능 › HTML › 이 페이지의 <b>이름</b> 칸이에요. 큰 영문 이름(HTML)은 LOPE가 HTML 페이지마다 똑같이 붙이는 글자라 이 페이지에서는 바꿀 수 없어요." }))
+  ], () => {
+    lib.title = str(t.value); lib.sub = str(s2.value); lib.motto = m.value; lib.showSite = sh.checked;
+    writeSetting("bigTitle", lib.title); writeSetting("smallTitle", lib.sub); writeSetting("motto", lib.motto);
+    markDirty(); go("library", {}, false);
+  });
 }
 
 function modal(title, body, onOk, okText){
@@ -1074,7 +1160,7 @@ function modal(title, body, onOk, okText){
     h("div", { class: "acts" }, h("button", { class: "btn sm line", type: "button", onclick: close, text: "닫기" }),
       onOk ? h("button", { class: "btn sm kr", type: "button", onclick: () => { if (onOk() !== false) close(); }, text: okText || "적용" }) : null));
   bg.addEventListener("click", (e) => { if (e.target === bg) close(); });
-  bg.appendChild(box); document.body.appendChild(bg);
+  bg.appendChild(box); FRAME.appendChild(bg);
   const f = box.querySelector("input,textarea,select"); if (f) f.focus();
   return close;
 }
@@ -1396,7 +1482,7 @@ VIEWS.reader = function(p){
     if (path.some(n => n.nodeType === 1 && /^(A|BUTTON|SUMMARY|INPUT|SELECT|TEXTAREA|LABEL|IFRAME|VIDEO|AUDIO)$/.test(n.tagName))) return;
     if (path.some(n => n.classList && (n.classList.contains("sp") || n.classList.contains("rd-top") || n.classList.contains("rd-bot")))) return;
     const sel = window.getSelection(); if (sel && String(sel).length) return;
-    const x = ev.clientX / window.innerWidth;
+    const x = ev.clientX / (FRAME.clientWidth || window.innerWidth);
     if (RS.page === "tap" && (x < .3 || x > .7)){
       const step = (app.clientHeight - 90) * (x < .3 ? -1 : 1);
       if (x > .7 && app.scrollTop + app.clientHeight >= app.scrollHeight - 4 && nextI >= 0){ go("reader", { id: s.id, i: nextI }, false); return; }
@@ -1443,7 +1529,7 @@ function openToc(s, curI){
     h("div", { class: "hd" }, h("h3", { text: "INDEX" }), barcode(s.title, 14), h("span", { class: "mono", text: pad(n) + " EP" }),
       h("button", { class: "x", type: "button", onclick: close, text: "CLOSE ✕" })),
     h("div", { class: "bd" }, h("p", { class: "mono", style: { color: "rgba(255,255,255,.8)", margin: "0 0 12px 16px" }, text: s.title }), ol));
-  document.body.appendChild(bg); document.body.appendChild(dr);
+  FRAME.appendChild(bg); FRAME.appendChild(dr);
   const c = dr.querySelector(".cur"); if (c) c.scrollIntoView({ block: "center" });
 }
 function openSettings(rd, s, e){
@@ -1516,10 +1602,10 @@ VIEWS.editSeries = function(p){
   const coverBox = h("div", { class: "inline", style: { alignItems: "flex-start" } }, prev,
     h("div", { style: { flex: "1", minWidth: "200px", display: "flex", flexDirection: "column", gap: "8px" } }, coverIn,
       h("div", { class: "inline" },
-        h("button", { class: "btn sm line", type: "button", onclick: async () => { const f = await pickFile("image/*"); if (!f) return; s.cover = await fileToImage(f, 640); coverIn.value = ""; drawPrev(); toast("표지를 줄여서 넣었어요 (" + kb(s.cover) + "KB)."); }, text: "사진 파일" }),
+        h("button", { class: "btn sm line", type: "button", onclick: async () => { const u = (await pickImages(false, 640))[0]; if (!u) return; s.cover = u; coverIn.value = u.startsWith("data:") ? "" : u; drawPrev(); toast(u.startsWith("data:") ? "표지를 줄여서 넣었어요 (" + kb(u) + "KB)." : "표지를 사이트에 올렸어요."); }, text: CAN_UPLOAD ? "사진 올리기" : "사진 파일" }),
         siteImages.length ? h("button", { class: "btn sm line", type: "button", onclick: () => pickSiteImage(src2 => { s.cover = src2; coverIn.value = src2; drawPrev(); }), text: "사이트 갤러리에서" }) : null,
         h("button", { class: "btn sm line", type: "button", onclick: () => { s.cover = ""; coverIn.value = ""; drawPrev(); }, text: "지우기" })),
-      h("small", { class: "mute", text: "https 주소를 쓰면 사이트 용량을 아낄 수 있어요. 파일은 640px로 줄여서 넣습니다." })));
+      h("small", { class: "mute", text: CAN_UPLOAD ? "올린 사진은 LOPE 사이트에 따로 저장되고 주소만 남아요." : "LOPE 밖에서는 640px로 줄여서 글자로 넣어요. LOPE 안에서는 사이트에 따로 올라가요." })));
 
   // 포인트 색
   const useC = h("input", { type: "checkbox", checked: !!s.color });
@@ -1771,6 +1857,7 @@ function richEditor(pane, e){
   ta.addEventListener("input", updCount);
   // 사진 파일을 끌어다 놓거나 붙여넣기
   const handleFiles = async (files) => {
+    if (CAN_UPLOAD){ toast("사진은 '🖼 이미지' → '사진 올리기'로 넣어 주세요. 사이트에 따로 올라가 저장 칸을 아껴요."); return; }
     for (const f of files){ if (!/^image\//.test(f.type)) continue; const d = await fileToImage(f, 1100); insert(`<figure><img src="${d}" alt=""></figure><p><br></p>`); toast("사진을 줄여서 넣었어요 (" + kb(d) + "KB). 주소로 넣으면 용량을 아낄 수 있어요."); }
   };
   ed.addEventListener("drop", (ev) => { const fs = ev.dataTransfer && [...ev.dataTransfer.files].filter(f => /^image\//.test(f.type)); if (fs && fs.length){ ev.preventDefault(); handleFiles(fs); } });
@@ -1820,11 +1907,11 @@ function imageDialog(insert){
   close = modal("이미지 넣기", h("div", { class: "form", style: { marginTop: 0 } },
     h("div", { class: "fld" }, h("label", { text: "주소" }), u),
     h("div", { class: "inline" },
-      h("button", { class: "btn sm line", type: "button", onclick: async () => { const f = await pickFile("image/*"); if (!f) return; data = await fileToImage(f, 1100); u.value = ""; showPrev(data); toast("사진을 줄였어요 (" + kb(data) + "KB)."); }, text: "사진 파일 고르기" }),
+      h("button", { class: "btn sm line", type: "button", onclick: async () => { const got = (await pickImages(false, 1100))[0]; if (!got) return; if (got.startsWith("data:")){ data = got; u.value = ""; } else { data = ""; u.value = got; } showPrev(got); }, text: CAN_UPLOAD ? "사진 올리기" : "사진 파일 고르기" }),
       siteImages.length ? h("button", { class: "btn sm line", type: "button", onclick: () => pickSiteImage(src => { u.value = src; data = ""; showPrev(src); }), text: "사이트 갤러리" }) : null),
     prev,
     h("div", { class: "row2" }, h("div", { class: "fld" }, h("label", { text: "크기" }), w), h("div", { class: "fld" }, h("label", { text: "설명" }), cap)),
-    h("small", { class: "mute", text: "파일로 넣은 사진은 사이트 데이터 안에 저장돼요. 많이 넣으면 저장이 무거워지니, 가능하면 https 주소를 쓰세요." })),
+    h("small", { class: "mute", text: CAN_UPLOAD ? "'사진 올리기'로 고른 사진은 LOPE 사이트에 따로 올라가서, 서재 저장 칸을 차지하지 않아요." : "LOPE 밖에서 고른 사진은 줄여서 글자로 넣어요. LOPE 안에서 쓰면 사이트에 따로 올라갑니다." })),
   () => { const src = data || u.value.trim(); if (!isUrl(src)){ toast("https:// 로 시작하는 주소나 파일을 넣어 주세요."); return false; } insert(make(src)); }, "넣기");
 }
 
@@ -1913,10 +2000,135 @@ function chatEditor(pane, e){
   return { flush(){ c.raw = raw.value; c.mode = mode.value; c.names = names.checked; c.hideOoc = ooc.checked; } };
 }
 
+/* ═══════════════════════ LOPE 연동 ═══════════════════════ */
+const toLope = (msg) => { if (!LOCAL) parent.postMessage(Object.assign({ pageId: L.pageId }, msg), "*"); };
+
+// ── 이 페이지 설정 (LOPE 관리자 › 이 페이지 설정 칸과 같은 값)
+function writeSetting(key, value){
+  SET[key] = value;
+  if (EDITING) toLope({ type: "lope-settings-write", path: key, value });
+}
+function applySettings(){
+  ROOT.classList.toggle("no-grid", SET.grid === false);
+  if (SET.customAccent && safeColor(SET.accent)) ROOT.style.setProperty("--accent-own", safeColor(SET.accent));
+  else ROOT.style.removeProperty("--accent-own");
+  applyMode();
+  layoutSafe();
+}
+
+// ── 밝기 · 배경: LOPE 에 "이 페이지 뒤 배경이 뭐냐"고 물어서 실제 사이트 배경에 맞춘다
+//    (LOPE 의 다크 표시보다 정확: 스킨이 칠한 진짜 배경색의 밝기, 배경 이미지 여부까지 알려줌)
+let backdrop = null;
+function applyMode(){
+  let m = SET.mode === "light" || SET.mode === "dark" ? SET.mode : "";
+  if (!m && backdrop) m = backdrop.dark ? "dark" : "light";
+  if (!m && !LOCAL && typeof (L.theme || {}).dark === "boolean") m = L.theme.dark ? "dark" : "light";
+  if (m) ROOT.setAttribute("data-mode", m); else ROOT.removeAttribute("data-mode");
+  const forced = SET.mode === "light" || SET.mode === "dark";
+  const bg = backdrop && !forced ? str(backdrop.color) : "";
+  if (bg && /^rgba?\([\d\s.,]+\)$/.test(bg)) ROOT.style.setProperty("--site-bg", bg); else ROOT.style.removeProperty("--site-bg");
+  // 배경 이미지가 깔린 사이트는 투명하게 두어 이미지가 비치게, 아니면 같은 색을 직접 칠해 경계가 안 보이게
+  ROOT.classList.toggle("solid-bg", !!bg && !(backdrop && backdrop.image));
+}
+
+// ── 오른쪽 편집 서랍 자리
+//    LOPE 는 서랍(접힘 48px · 펼침 390+40px)을 화면 위에 덮어 그리고 이 페이지에는 알려주지 않는다.
+//    마우스가 오른쪽에서 이 페이지로 들어오는 자리 = 가리는 판의 왼쪽 끝 → 그만큼 #frame 을 좁힌다.
+let rsv = 0, rsvMode = "auto";
+const RAIL = 48, DRAWER = () => Math.min(390, Math.round(window.innerWidth * .92)) + 40;
+function setRsv(px){
+  px = Math.max(0, Math.min(Math.round(window.innerWidth * .6), Math.round(px)));
+  if (Math.abs(px - rsv) < 8 && px !== 0) return;
+  rsv = px;
+  ROOT.style.setProperty("--rsv", px + "px");
+  layoutSafe();
+}
+function guessRsv(x, dirX, dirY){
+  if (!EDITING || rsvMode !== "auto" || window.innerWidth < 760) return;
+  if ((dirX || dirY) && !(dirX > 0 && Math.abs(dirX) >= Math.abs(dirY))) return;   // 오른쪽 경계를 넘을 때만 믿는다
+  const gap = window.innerWidth - x;
+  if (gap < 20) setRsv(0);
+  else if (gap < 140) setRsv(RAIL);
+  else if (gap < DRAWER() + 90) setRsv(gap > DRAWER() - 70 ? DRAWER() : gap);
+}
+let outside = true;
+document.addEventListener("mouseout", (e) => { if (!e.relatedTarget){ outside = true; guessRsv(e.clientX, e.movementX || 0, e.movementY || 0); } });
+document.addEventListener("mousemove", (e) => { if (!outside) return; outside = false; guessRsv(e.clientX, -(e.movementX || 0), -(e.movementY || 0)); }, { passive: true });
+function cycleRsv(btn){
+  const order = ["auto", "rail", "open", "none"], lab = { auto: "자동", rail: "접힘", open: "펼침", none: "없음" };
+  rsvMode = order[(order.indexOf(rsvMode) + 1) % order.length];
+  if (rsvMode === "rail") setRsv(RAIL); else if (rsvMode === "open") setRsv(DRAWER()); else if (rsvMode === "none") setRsv(0); else setRsv(window.innerWidth >= 760 ? RAIL : 0);
+  if (btn) btn.textContent = "편집창 자리: " + lab[rsvMode];
+}
+
+// ── 스킨 메뉴 단추가 가리는 위쪽 높이
+//    PV(IF ARCHIVE) 스킨은 1600×900 무대를 화면에 맞춰 늘이고, 오른쪽 위에 MENU 단추(높이 68, 폰 46)를 띄운다.
+function layoutSafe(){
+  let top = 0;
+  const manual = Number(SET.safeTop) || 0;
+  if (manual > 0) top = manual;
+  else if (SKIN === "pv"){
+    const W0 = window.innerWidth, sw = W0 - rsv, sh = window.innerHeight;
+    const phone = W0 < 760 || W0 / sh < 0.85;
+    if (phone){ const W = sw <= 480 ? Math.max(360, sw) : Math.round(Math.min(600, Math.max(480, sw / 1.5))); top = 46 * (sw / W); }
+    else top = 68 * Math.min(sw / 1600, sh / 900);
+    top = Math.ceil(top) + 6;
+  }
+  ROOT.style.setProperty("--safe-top", top + "px");
+}
+window.addEventListener("resize", layoutSafe);
+
+// ── LOPE 서버에 사진 올리기 (사이트 데이터에 글자로 박지 않고 주소만 남김)
+const CAN_UPLOAD = EDITING;
+function lopeUpload(multiple){
+  return new Promise(res => {
+    const requestId = uid();
+    const on = (ev) => {
+      const d = ev.data || {};
+      if (ev.source !== parent || d.type !== "lope-html-page-images-added" || d.requestId !== requestId) return;
+      window.removeEventListener("message", on);
+      res(arr(d.images).map(x => str(x && x.url)).filter(isUrl));
+    };
+    window.addEventListener("message", on);
+    toLope({ type: "lope-html-page-add-images", requestId, multiple: !!multiple });
+  });
+}
+async function pickImages(multiple, max){
+  if (CAN_UPLOAD) return lopeUpload(multiple);
+  const f = await pickFile("image/*");
+  if (!f) return [];
+  return [await fileToImage(f, max || 1000)];
+}
+
+// ── LOPE 에서 오는 소식
+window.addEventListener("message", (ev) => {
+  if (ev.source !== parent) return;
+  const d = ev.data || {};
+  if (d.type === "lope-html-page-backdrop" && (!d.pageId || d.pageId === L.pageId)){
+    backdrop = { dark: !!d.dark, color: str(d.color), image: !!d.image };
+    applyMode();
+  } else if (d.type === "lope-settings-update" && String(d.id) === String(L.pageId)){
+    SET = Object.assign(SET, d.settings || {});
+    applySettings();
+    if (cur && cur.view === "library") go("library", {}, false);
+  } else if (d.type === "lope-html-page-saved" && d.pageId === L.pageId){
+    toast("사이트에 저장했어요.");
+  }
+});
+
 /* ═══════════════════════ 시작 ═══════════════════════ */
 document.head.appendChild(h("style", { text: NV_CSS + `.ed.nv .sp{ background:var(--blue-soft); outline:1px dashed var(--blue); } .ed.nv details > :not(summary){ outline:1px dashed var(--line); }` }));
-const t0 = str(lib.title); if (t0) document.title = t0 + (lib.sub ? " " + lib.sub : "");
-go("library", {}, false);
+const t0 = str(SET.bigTitle) || str(lib.title); if (t0) document.title = t0 + ((str(SET.smallTitle) || lib.sub) ? " " + (str(SET.smallTitle) || lib.sub) : "");
+if (EDITING && window.innerWidth >= 760) setRsv(RAIL);
+applySettings();
+toLope({ type: "lope-html-page-backdrop" });
+// 저장 직후 LOPE 가 페이지를 새로 열었으면 보던 화면으로 (주인만, 2분 안)
+const resume = EDITING && lib.resume && Date.now() - (lib.resume.at || 0) < 120000 ? lib.resume : null;
+delete lib.resume;
+if (resume && VIEWS[resume.view]){ go("library", {}, false); go(resume.view, resume.params || {}); }
+else go("library", {}, false);
+if (recovered === true && EDITING) toast("예전 형식으로 저장된 서재를 되살렸어요. 한 번 '사이트에 저장'을 눌러 새 형식으로 바꿔 주세요.");
+if (recovered === "broken" && EDITING) toast("저장된 서재를 읽지 못했어요. 백업 파일이 있다면 '백업 불러오기'로 되돌려 주세요.");
 })();
 </script>
 </body>
