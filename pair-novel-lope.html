@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NOVEL ARCHIVE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Black+Han+Sans&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Serif+KR:wght@400;600;700&family=Gowun+Batang:wght@400;700&family=Nanum+Myeongjo:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css" rel="stylesheet">
+<!-- LOPE 관리자 › 이 페이지 설정에 나오는 칸 (LOPE가 읽어서 편집 서랍에 보여준다) -->
+<script type="application/json" id="lope-settings">
+[
+  {"key":"bigTitle","type":"text","label":"큰 제목","placeholder":"NOVEL","help":"서재 맨 위의 큰 글씨. 비우면 NOVEL","value":""},
+  {"key":"smallTitle","type":"text","label":"작은 제목 (포인트 색)","placeholder":"ARCHIVE","help":"큰 제목 아래 포인트 색 글씨. 비우면 ARCHIVE","value":""},
+  {"key":"motto","type":"textarea","label":"작은 문구","placeholder":"STORIES / KEPT / FURTHER / THAN NOISE.","help":"큰 제목 옆 작은 영문. 줄바꿈 그대로","value":""},
+  {"key":"mode","type":"select","label":"밝기","options":[["auto","사이트 스킨 따라가기"],["light","항상 밝게"],["dark","항상 어둡게"]],"value":"auto"},
+  {"key":"customAccent","type":"checkbox","label":"포인트 색 직접 정하기","help":"끄면 스킨의 포인트 색을 그대로 씁니다","value":false},
+  {"key":"accent","type":"color","label":"포인트 색","value":"#0b4dff","showIf":{"key":"customAccent","in":["true"]}},
+  {"key":"grid","type":"checkbox","label":"격자 무늬 깔기","value":true},
+  {"key":"safeTop","type":"number","label":"위쪽 비울 높이 (px)","help":"스킨 메뉴와 겹칠 때만. 0이면 자동","min":0,"max":200,"value":0}
+]
+</script>
+<script>
+/* 첫 화면이 그려지기 전에 스킨·밝기를 맞춰 둔다 (깜빡임 방지) */
+(function(){
+  var L = window.LOPE_HTML_PAGE || {}, t = L.theme || {}, st = L.settings || {}, r = document.documentElement;
+  if (t.skin) r.setAttribute("data-skin", String(t.skin));
+  var m = st.mode === "light" || st.mode === "dark" ? st.mode : (L.pageId && typeof t.dark === "boolean" ? (t.dark ? "dark" : "light") : "");
+  if (m) r.setAttribute("data-mode", m);
+})();
+</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/dan0030/lope@98fa0b2dcf2d287eaaf6f66c100952fd05809a85/dist/novel.css">
+</head>
+<body>
+<div id="frame"><main id="app" aria-live="polite"></main></div>
+<script src="https://cdn.jsdelivr.net/gh/dan0030/lope@98fa0b2dcf2d287eaaf6f66c100952fd05809a85/dist/novel.js" charset="utf-8"></script>
+<script>
+if (!window.LOPE_NOVEL_READY) document.getElementById("app").innerHTML =
+  '<p style="margin:40px 20px;font:14px/1.7 system-ui,sans-serif;text-align:center;opacity:.7">소설 서재를 불러오지 못했어요. 잠시 뒤 새로고침해 주세요.<br><small>(98fa0b2)</small></p>';
+</script>
+</body>
+</html>
