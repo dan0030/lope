@@ -897,11 +897,14 @@ function decodeStore(raw){
 
 /* ═══════════════════════ 불러오기 ═══════════════════════ */
 let extPending = null;   // 외부 저장소에 둔 서재를 가리키는 포인터 (시작할 때 받아 옴)
-let extFailed = false;   // 외부 서재를 못 받았으면 빈 서재로 덮어쓰지 않도록 저장을 막는다
+let extFailed = false;
+let savedPtrKey = "";    // 지금 LOPE 에 남아 있는 저장 위치 (같으면 LOPE 는 건드리지 않는다)
+// 저장 위치의 "주소"만 비교 (커밋 번호·시각은 빼고)
+const ptrKey = (p) => p ? JSON.stringify([p.mode, p.owner || "", p.repo || "", p.branch || "", p.path || "", p.mode === "url" ? p.url : ""]) : "";   // 외부 서재를 못 받았으면 빈 서재로 덮어쓰지 않도록 저장을 막는다
 function loadLib(){
   let raw = L.richText;
   const j0 = decodeStore(raw);
-  if (j0 && j0.ptr){ extPending = j0.ptr; const l = emptyLib(); l.ext = j0.ptr; ["title", "sub", "motto", "showSite"].forEach(k => { if (j0[k] != null) l[k] = j0[k]; }); return l; }
+  if (j0 && j0.ptr){ extPending = j0.ptr; savedPtrKey = ptrKey(j0.ptr); const l = emptyLib(); l.ext = j0.ptr; ["title", "sub", "motto", "showSite"].forEach(k => { if (j0[k] != null) l[k] = j0[k]; }); return l; }
   if (j0) return normalizeLib(j0);
   if (typeof raw === "string" && raw.trim()){
     if (/lopeNovel/.test(raw)){ recovered = "broken"; return emptyLib(); }
@@ -962,10 +965,10 @@ async function saveToSite(){
   sendRichText(text, "저장 중… (" + Math.round(text.length / STORE_MAX * 100) + "% 사용)");
 }
 // LOPE 에는 "어디에 있는지"만 남긴다 (몇 백 자)
-function savePointer(ptr){
+function savePointer(ptr, note){
   const o = { lopeNovel: 1, ptr, title: lib.title, sub: lib.sub, motto: lib.motto, showSite: lib.showSite };
-  lib.ext = ptr;
-  sendRichText(encodeStore(o), "LOPE에 저장 위치를 남겼어요.");
+  lib.ext = ptr; savedPtrKey = ptrKey(ptr);
+  sendRichText(encodeStore(o), note || "LOPE에 저장 위치를 남겼어요.");
 }
 
 /* ── 외부 저장소 ──────────────────────────────────────────────
@@ -1007,8 +1010,10 @@ function askToken(){
   return new Promise(res => {
     const t = h("input", { class: "in", type: "password", autocomplete: "off", placeholder: "github_pat_…", value: ghToken });
     modal("GitHub 토큰", h("div", { class: "form", style: { marginTop: 0 } },
-      h("div", { class: "fld" }, h("label", { text: "토큰 (이번에만 쓰고 저장하지 않아요)" }), t),
-      h("p", { class: "help", html: "GitHub › Settings › Developer settings › <b>Fine-grained tokens</b> › Generate new token<br>· Repository access: 서재를 둘 저장소 하나만<br>· Permissions › Repository › <b>Contents: Read and write</b><br>토큰은 이 페이지가 열려 있는 동안만 기억하고, LOPE에도 GitHub 밖에도 보내지 않아요." })),
+      h("div", { class: "fld" }, h("label", { text: "토큰" }), t),
+      h("p", { class: "help", html: "<b>한 번 넣으면 사이트를 닫을 때까지 다시 묻지 않아요.</b> 저장해도 페이지가 새로 열리지 않게 해 두었어요.<br>" +
+        "사이트를 새로 열면 한 번 더 넣어야 해요. LOPE가 페이지의 브라우저 저장을 막아 두었고, LOPE 데이터에 넣으면 방문자 모두에게 토큰이 보이기 때문이에요. 브라우저나 비밀번호 관리자에 복사해 두면 편해요.<br><br>" +
+        "GitHub › Settings › Developer settings › <b>Fine-grained tokens</b> › Generate new token<br>· Repository access: 서재를 둘 저장소 하나만<br>· Permissions › Repository › <b>Contents: Read and write</b><br>토큰은 GitHub 말고는 어디에도 보내지 않아요." })),
       () => { const v = str(t.value); if (!v){ toast("토큰을 넣어 주세요."); return false; } ghToken = v; res(v); }, "올리기");
   });
 }
@@ -1018,8 +1023,17 @@ async function saveGithub(o){
   const token = ghToken || await askToken();
   toast("GitHub에 올리는 중…");
   try {
-    const sha = await ghPublish(cfg, token, JSON.stringify(o));
-    savePointer({ mode: "github", owner: cfg.owner, repo: cfg.repo, branch: cfg.branch || "", path: cfg.path, sha, at: Date.now() });
+    delete o.resume;   // 저장해도 페이지가 다시 열리지 않으니 돌아올 화면 표시는 필요 없음
+    await ghPublish(cfg, token, JSON.stringify(o));
+    // LOPE 에는 "어느 저장소의 어느 파일"만 남긴다 (커밋 번호 없이 → 저장할 때마다 바뀌지 않음).
+    // LOPE 의 값이 그대로면 LOPE 는 페이지를 다시 열지 않으므로, 넣어 둔 토큰이 이 방문 동안 계속 살아 있다.
+    const ptr = { mode: "github", owner: cfg.owner, repo: cfg.repo, branch: cfg.branch || "", path: cfg.path };
+    if (ptrKey(ptr) === savedPtrKey){
+      lib.ext = Object.assign({}, lib.ext, ptr);
+      dirty = false; lib.demo = false;
+      document.querySelectorAll(".adminbar").forEach(b => updateAdminBar(b));
+      toast("GitHub에 저장했어요. 방문자 화면에는 1분쯤 뒤에 반영돼요.");
+    } else savePointer(ptr, "GitHub에 저장하고, LOPE에 저장 위치를 남겼어요. 이번 한 번은 페이지가 새로 열려요.");
   } catch (e){
     if (/토큰/.test(e.message)) ghToken = "";
     toast(e.message || "GitHub 저장에 실패했어요.");
@@ -1033,20 +1047,30 @@ function saveUrlFile(o){
     h("p", { class: "help", html: "방금 받은 <b>novel-library.json</b> 을 아래 주소의 파일에 덮어 올린 뒤 '올렸어요'를 눌러 주세요.<br><code>" + esc(cfg.url) + "</code>" })),
     () => { savePointer({ mode: "url", url: cfg.url, at: Date.now() }); }, "올렸어요");
 }
-function extUrls(ptr){
-  if (ptr.mode === "github" && ptr.sha){
-    const path = ghPath(ptr.path);
-    return ["https://cdn.jsdelivr.net/gh/" + ptr.owner + "/" + ptr.repo + "@" + ptr.sha + "/" + path,
-            "https://raw.githubusercontent.com/" + ptr.owner + "/" + ptr.repo + "/" + ptr.sha + "/" + path];
+// GitHub: 그 파일의 가장 최근 커밋을 물어서 jsDelivr(빠름)로 받고, 안 되면 raw 로 바로 받는다.
+async function extUrls(ptr){
+  if (ptr.mode === "github"){
+    const path = ghPath(ptr.path), base = ptr.owner + "/" + ptr.repo;
+    const out = [];
+    try {
+      const q = "https://api.github.com/repos/" + encodeURIComponent(ptr.owner) + "/" + encodeURIComponent(ptr.repo) + "/commits?per_page=1&path=" + encodeURIComponent(ptr.path) + (ptr.branch ? "&sha=" + encodeURIComponent(ptr.branch) : "");
+      const r = await fetch(q, { cache: "no-cache" });
+      const j = r.ok ? await r.json() : null;
+      const sha = j && j[0] && j[0].sha;
+      if (sha) out.push("https://cdn.jsdelivr.net/gh/" + base + "@" + sha + "/" + path, "https://raw.githubusercontent.com/" + base + "/" + sha + "/" + path);
+    } catch (e) {}
+    out.push("https://raw.githubusercontent.com/" + base + "/" + (ptr.branch ? ghPath(ptr.branch) : "HEAD") + "/" + path);
+    if (ptr.sha) out.push("https://cdn.jsdelivr.net/gh/" + base + "@" + ptr.sha + "/" + path);   // 예전 형식의 위치
+    return out;
   }
   if (ptr.mode === "url" && isUrl(ptr.url)) return [ptr.url + (ptr.url.includes("?") ? "&" : "?") + "v=" + (ptr.at || 0)];
   return [];
 }
 async function fetchExternal(ptr){
   let last = "";
-  for (const u of extUrls(ptr)){
+  for (const u of await extUrls(ptr)){
     try {
-      const r = await fetch(u, { cache: "force-cache" });
+      const r = await fetch(u, { cache: /jsdelivr\.net\/gh\/[^@]+@[0-9a-f]{40}\//.test(u) ? "force-cache" : "no-cache" });
       if (!r.ok){ last = "HTTP " + r.status; continue; }
       const j = await r.json();
       if (j && j.lopeNovel) return j;
@@ -2470,9 +2494,7 @@ if (extPending){
   VIEWS.loading = () => app.appendChild(h("div", { class: "page" }, h("div", { class: "empty", style: { marginTop: "60px" } }, h("b", { text: "LOADING" }), "서재를 불러오는 중이에요", h("span", { class: "cursor" }))));
   go("loading", {}, false);
   fetchExternal(ptr).then(j => {
-    const keep = { title: lib.title, sub: lib.sub, motto: lib.motto, showSite: lib.showSite };
-    lib = normalizeLib(j); lib.ext = ptr;
-    Object.keys(keep).forEach(k => { if (keep[k] != null) lib[k] = keep[k]; });
+    lib = normalizeLib(j); lib.ext = Object.assign({}, j.ext || {}, ptr);
     startViews();
   }).catch(err => {
     extFailed = true;
